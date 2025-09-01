@@ -1,111 +1,178 @@
-// Predefined month names
-const monthNames = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+/**
+ * Balancify Service Worker
+ * Enhanced PWA capabilities with offline functionality
+ */
+
+const CACHE_NAME = 'balancify-v2.0';
+const urlsToCache = [
+    './',
+    './index.html',
+    './app.js',
+    './manifest.json',
+    './icons/icon-192.png',
+    './icons/icon-512.png'
 ];
 
-// Keep track of added months
-const monthList = [];
+// Install event - cache resources
+self.addEventListener('install', (event) => {
+    console.log('Service Worker: Installing...');
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => {
+                console.log('Service Worker: Caching files');
+                return cache.addAll(urlsToCache);
+            })
+            .then(() => {
+                console.log('Service Worker: Cached all files successfully');
+                return self.skipWaiting();
+            })
+            .catch((error) => {
+                console.error('Service Worker: Caching failed:', error);
+            })
+    );
+});
 
-// Add a new month tile with income
-function addMonthTile() {
-    const monthName = document.getElementById("monthSelect").value;
-    const year = document.getElementById("yearInput").value;
-    const income = parseFloat(document.getElementById("incomeInput").value);
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+    console.log('Service Worker: Activating...');
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Service Worker: Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => {
+            console.log('Service Worker: Activated');
+            return self.clients.claim();
+        })
+    );
+});
 
-    if (!income || income < 0) {
-        alert("Please enter valid income");
+// Fetch event - serve cached content when offline
+self.addEventListener('fetch', (event) => {
+    // Only handle GET requests
+    if (event.request.method !== 'GET') {
         return;
     }
 
-    const monthTileTitle = `${monthName} ${year}`; // FIX: simple string instead of Date
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                // Return cached version or fetch from network
+                if (response) {
+                    console.log('Service Worker: Serving from cache:', event.request.url);
+                    return response;
+                }
 
-    if (monthList.includes(monthTileTitle)) {
-        alert("Month already exists");
-        return;
+                console.log('Service Worker: Fetching from network:', event.request.url);
+                return fetch(event.request).then((response) => {
+                    // Don't cache if not a valid response
+                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                        return response;
+                    }
+
+                    // Clone the response
+                    const responseToCache = response.clone();
+
+                    // Add to cache for future use
+                    caches.open(CACHE_NAME)
+                        .then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+
+                    return response;
+                });
+            })
+            .catch(() => {
+                // If both cache and network fail, return offline page
+                if (event.request.destination === 'document') {
+                    return caches.match('./index.html');
+                }
+            })
+    );
+});
+
+// Handle background sync (for future implementation)
+self.addEventListener('sync', (event) => {
+    console.log('Service Worker: Background sync triggered');
+    if (event.tag === 'balancify-data-sync') {
+        event.waitUntil(syncData());
     }
+});
 
-    monthList.push(monthTileTitle);
+// Push notifications (for future implementation)
+self.addEventListener('push', (event) => {
+    console.log('Service Worker: Push received');
 
-    // Update month select for expenses
-    const expMonthSelect = document.getElementById("expenseMonth");
-    const option = document.createElement("option");
-    option.value = monthTileTitle;
-    option.innerText = monthTileTitle;
-    expMonthSelect.appendChild(option);
-
-    // Create the tile as before (UI unchanged)
-    const monthTile = document.createElement("div");
-    monthTile.id = monthTileTitle;
-    monthTile.className = "month-tile";
-
-    const titleEl = document.createElement("h3");
-    titleEl.innerText = monthTileTitle;
-    monthTile.appendChild(titleEl);
-
-    const incomeEl = document.createElement("p");
-    incomeEl.innerText = `Income: ₹${income}`;
-    incomeEl.id = `${monthTileTitle}-income`;
-    monthTile.appendChild(incomeEl);
-
-    const expensesContainer = document.createElement("div");
-    expensesContainer.id = `${monthTileTitle}-expenses`;
-    monthTile.appendChild(expensesContainer);
-
-    document.getElementById("months-container").appendChild(monthTile);
-}
-
-// Add an expense entry to a specific month
-function addExpenseEntry() {
-    const monthTileTitle = document.getElementById("expenseMonth").value;
-    if (!monthTileTitle) {
-        alert("Please select a month first");
-        return;
-    }
-
-    let type = document.getElementById("expenseType").value;
-    const otherType = document.getElementById("otherType").value;
-    if (type === "Other") {
-        if (!otherType) {
-            alert("Please specify other type");
-            return;
+    let notificationData = {
+        title: 'Balancify',
+        body: 'Don't forget to log your expenses!',
+        icon: './icons/icon-192.png',
+        badge: './icons/icon-192.png',
+        data: {
+            url: './'
         }
-        type = otherType;
-    }
-
-    const amount = parseFloat(document.getElementById("expenseAmount").value);
-    if (!amount || amount < 0) {
-        alert("Please enter valid amount");
-        return;
-    }
-
-    const expensesContainer = document.getElementById(`${monthTileTitle}-expenses`);
-    const incomeEl = document.getElementById(`${monthTileTitle}-income`);
-
-    // Create expense entry with delete button
-    const expenseEl = document.createElement("p");
-    expenseEl.className = "expense-entry";
-    expenseEl.innerText = `${type}: ₹${amount} (${new Date().toLocaleDateString()})`;
-
-    const delBtn = document.createElement("button");
-    delBtn.innerText = "Delete";
-    delBtn.onclick = () => {
-        expenseEl.remove();
-        let currentIncome = parseFloat(incomeEl.innerText.split("₹")[1]);
-        currentIncome += parseFloat(amount);
-        incomeEl.innerText = `Income: ₹${currentIncome}`;
     };
-    expenseEl.appendChild(delBtn);
 
-    expensesContainer.appendChild(expenseEl);
+    if (event.data) {
+        try {
+            notificationData = { ...notificationData, ...event.data.json() };
+        } catch (e) {
+            notificationData.body = event.data.text();
+        }
+    }
 
-    // Deduct from income
-    let currentIncome = parseFloat(incomeEl.innerText.split("₹")[1]);
-    currentIncome -= amount;
-    incomeEl.innerText = `Income: ₹${currentIncome}`;
+    event.waitUntil(
+        self.registration.showNotification(notificationData.title, notificationData)
+    );
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+    console.log('Service Worker: Notification clicked');
+    event.notification.close();
+
+    event.waitUntil(
+        clients.matchAll().then((clientList) => {
+            for (const client of clientList) {
+                if (client.url === '/' && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow('./');
+            }
+        })
+    );
+});
+
+// Sync data function (placeholder for future implementation)
+async function syncData() {
+    try {
+        console.log('Service Worker: Syncing data...');
+        // Future implementation for cloud sync
+        return Promise.resolve();
+    } catch (error) {
+        console.error('Service Worker: Sync failed:', error);
+        throw error;
+    }
 }
 
-// Service worker registration for PWA (if used)
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").then(
+// Message handling for communication with main app
+self.addEventListener('message', (event) => {
+    console.log('Service Worker: Message received:', event.data);
+
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+
+    if (event.data && event.data.type === 'GET_VERSION') {
+        event.ports[0].postMessage({ version: CACHE_NAME });
+    }
+});
+
+console.log('Service Worker: Script loaded');
