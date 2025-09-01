@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balancify</title>
+    <style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; color: #1a1a1a; line-height: 1.6; }
+header { background: linear-gradient(135deg, #6c63ff, #3f3dff); color: #fff; padding: 60px 20px; text-align: center; }
+header h1 { font-size: 3rem; font-weight: 700; margin-bottom: 15px; letter-spacing: 1px; }
+header p { font-size: 1.2rem; margin-bottom: 30px; opacity: 0.9; }
+.cta-button { background: #fff; color: #3f3dff; padding: 15px 40px; font-size: 1rem; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; text-decoration: none; }
+.cta-button:hover { background: #e0e0ff; }
+.features { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 60px 20px; max-width: 1000px; margin: auto; }
+.feature-card { background: #fff; padding: 30px 20px; border-radius: 12px; flex: 1 1 250px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s ease; cursor: pointer; }
+.feature-card:hover { transform: translateY(-5px); }
+.feature-card h3 { font-size: 1.4rem; margin-bottom: 10px; color: #3f3dff; }
+.feature-card p { font-size: 1rem; color: #555; }
+#app-section { padding: 50px 20px; max-width: 1000px; margin: auto; }
+select, input, button { margin: 5px; padding: 5px; }
+.month-card { background: #fff; padding: 20px; margin: 10px 0; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: transform 0.3s ease; }
+.month-card:hover { transform: translateY(-5px); }
+.month-header { font-weight: bold; font-size: 1.2rem; color: #3f3dff; margin-bottom: 10px; cursor: pointer; }
+.month-content { display: none; margin-top: 10px; }
+.expense { border-bottom: 1px solid #eee; padding: 5px 0; display: flex; justify-content: space-between; }
+.expense button { background: transparent; border: none; color: red; font-weight: bold; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+    <h1>Balancify</h1>
+    <p>Track, save, and let your wealth work for you.</p>
+    <a href="#app-section" class="cta-button">Start Tracking</a>
+</header>
+<section class="features">
+    <div class="feature-card" onclick="document.getElementById('monthSelect').scrollIntoView({behavior:'smooth'})">
+        <h3>Track Expenses</h3>
+        <p>Easily add and categorize all your monthly expenses with one click.</p>
+    </div>
+    <div class="feature-card" onclick="document.getElementById('incomeInput').scrollIntoView({behavior:'smooth'})">
+        <h3>Set Monthly Income</h3>
+        <p>Manage your income and see your monthly balance at a glance.</p>
+    </div>
+    <div class="feature-card" onclick="document.getElementById('monthsContainer').scrollIntoView({behavior:'smooth'})">
+        <h3>Manage Wealth</h3>
+        <p>Know where your money goes and plan for investments and savings.</p>
+    </div>
+</section>
+<section id="app-section">
+    <h2>💰 Expense Tracker</h2>
+    <div>
+        <label>Month:</label>
+        <select id="monthSelect">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8" selected>August</option>
+            <option value="9">September</option><option value="10">October</option><option value="11">November</option>
+            <option value="12">December</option>
+        </select>
+        <label>Year:</label>
+        <select id="yearSelect"></select>
+        <input type="number" id="incomeInput" placeholder="Set Monthly Income">
+        <button id="saveIncomeBtn">Save Income</button>
+    </div>
+    <div id="monthsContainer"></div>
+</section>
+<script>
+let allData = JSON.parse(localStorage.getItem('allData')) || {};
+
+// Helpers
+function getMonthKey(month, year){ return year + "-" + month; }
+function saveData(){ localStorage.setItem('allData', JSON.stringify(allData)); }
+
+// Set Income
+document.getElementById('saveIncomeBtn').addEventListener('click', () => {
+  const month = document.getElementById('monthSelect').value;
+  const year = document.getElementById('yearSelect').value;
+  const income = Number(document.getElementById('incomeInput').value);
+  const key = getMonthKey(month, year);
+  if(!allData[key]) allData[key] = {income: 0, expenses: []};
+  allData[key].income = income;
+  saveData();
+  renderMonths();
+});
+
+// Add Expense
+function addExpense(key){
+  const date = document.getElementById('date-'+key).value;
+  const categorySelect = document.getElementById('category-'+key);
+  const otherInput = document.getElementById('other-'+key);
+  const category = categorySelect.value==='Other'?otherInput.value:categorySelect.value;
+  const amount = Number(document.getElementById('amount-'+key).value);
+  const notes = document.getElementById('notes-'+key).value;
+  if(!allData[key]) allData[key]={income:0, expenses:[]};
+  allData[key].expenses.push({date, category, amount, notes});
+  saveData();
+  renderMonths();
+}
+
+// Delete Expense
+function deleteExpense(key, index){
+  if(confirm("Delete this expense?")){
+    allData[key].expenses.splice(index,1);
+    saveData();
+    renderMonths();
+  }
+}
+
+// Toggle Month Content
+function toggleMonth(key){
+  const content = document.getElementById('content-'+key);
+  if(content) content.style.display = content.style.display==='block'?'none':'block';
+}
+
+// Show/Hide Other Category
+function toggleOtherCategory(select, key){
+  const otherInput = document.getElementById('other-'+key);
+  if(otherInput) otherInput.style.display = select.value==='Other'?'inline-block':'none';
+}
+
+// Render Months as Cards
+function renderMonths(){
+  const container = document.getElementById('monthsContainer');
+  container.innerHTML = '';
+  const keys = Object.keys(allData).sort().reverse();
+  keys.forEach(key=>{
+    const [year, month] = key.split('-');
+    const data = allData[key];
+    const monthName = new Date(key+'-01').toLocaleString('default',{month:'long'});
+    const totalExpenses = data.expenses.reduce((sum,e)=>sum+e.amount,0);
+    const balance = data.income - totalExpenses;
+
+    const card = document.createElement('div');
+    card.className = 'month-card';
+
+    const header = document.createElement('div');
+    header.className = 'month-header';
+    header.textContent = `${monthName} ${year} | Income: ₹${data.income} | Expenses: ₹${totalExpenses} | Balance: ₹${balance}`;
+    header.onclick = ()=>toggleMonth(key);
+    card.appendChild(header);
+
+    const content = document.createElement('div');
+    content.className = 'month-content';
+    content.id = 'content-'+key;
+    content.innerHTML = `
+      <h4>Add Expense</h4>
+      <input type="date" id="date-${key}" value="${new Date().toISOString().split('T')[0]}">
+      <select id="category-${key}" onchange="toggleOtherCategory(this,'${key}')">
+        <option>Rent</option><option>Monthly Grocery</option><option>CreditCard</option>
+        <option>Tahseen</option><option>Fuel and Other</option><option>EMI</option>
+        <option>School Fees</option><option>Papa</option><option>Mummy</option>
+        <option>Investment</option><option value="Other">Other</option>
+      </select>
+      <input type="text" id="other-${key}" placeholder="Enter category name" style="display:none;">
+      <input type="number" id="amount-${key}" placeholder="Amount">
+      <input type="text" id="notes-${key}" placeholder="Notes">
+      <button id="addBtn-${key}">Add</button>
+      <h4>Expenses List</h4>
+    `;
+    card.appendChild(content);
+    container.appendChild(card);
+
+    // Attach Add button event
+    document.getElementById('addBtn-'+key).onclick = ()=>addExpense(key);
+
+    // Render expense list
+    const expList = data.expenses.map((e,idx)=>`<div class="expense">${e.date} - ${e.category} - ₹${e.amount} (${e.notes}) <button onclick="deleteExpense('${key}',${idx})">Delete</button></div>`).join('');
+    content.innerHTML += expList;
+  });
+}
+
+// Populate Year Select and Render
+window.onload = function(){
+  const yearSelect = document.getElementById('yearSelect');
+  const currentYear = new Date().getFullYear();
+  for(let y=currentYear-5; y<=currentYear+5; y++){
+    const opt = document.createElement('option');
+    opt.value = y; opt.text = y;
+    if(y===currentYear) opt.selected=true;
+    yearSelect.appendChild(opt);
+  }
+  renderMonths();
+};
+</script>
+</body>
+</html>
