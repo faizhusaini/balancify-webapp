@@ -1,12 +1,14 @@
 /**
- * Balancify - Enhanced Personal Expense Tracker
- * Features: Data persistence, error handling, PWA capabilities
+ * Balancify Enhanced - Personal Expense Tracker with Analytics & Budget Planning
+ * Features: Charts, Budget Planning, Advanced Analytics, Insights
  */
 
-class BalancifyApp {
+class BalancifyEnhancedApp {
     constructor() {
         this.months = new Map();
+        this.budgets = new Map();
         this.isOnline = navigator.onLine;
+        this.charts = {};
         this.init();
     }
 
@@ -15,16 +17,19 @@ class BalancifyApp {
         this.setupEventListeners();
         this.updateStats();
         this.checkOnlineStatus();
+        this.initializeCharts();
+        this.updateBudgetDisplay();
     }
 
-    // Data Management
+    // ============= DATA MANAGEMENT =============
     saveData() {
         try {
             const data = {
                 months: Object.fromEntries(this.months),
+                budgets: Object.fromEntries(this.budgets),
                 lastUpdated: new Date().toISOString()
             };
-            localStorage.setItem('balancify_data', JSON.stringify(data));
+            localStorage.setItem('balancify_enhanced_data', JSON.stringify(data));
             this.showMessage('Data saved successfully!', 'success');
         } catch (error) {
             console.error('Error saving data:', error);
@@ -34,13 +39,15 @@ class BalancifyApp {
 
     loadData() {
         try {
-            const savedData = localStorage.getItem('balancify_data');
+            const savedData = localStorage.getItem('balancify_enhanced_data');
             if (savedData) {
                 const data = JSON.parse(savedData);
                 this.months = new Map(Object.entries(data.months || {}));
+                this.budgets = new Map(Object.entries(data.budgets || {}));
                 this.renderAllMonths();
                 this.updateExpenseMonthDropdown();
-                console.log('Data loaded successfully');
+                this.updateBudgetDisplay();
+                console.log('Enhanced data loaded successfully');
             }
         } catch (error) {
             console.error('Error loading data:', error);
@@ -48,63 +55,479 @@ class BalancifyApp {
         }
     }
 
-    clearAllData() {
-        if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-            localStorage.removeItem('balancify_data');
-            this.months.clear();
-            document.getElementById('monthsContainer').innerHTML = '';
-            this.updateExpenseMonthDropdown();
-            this.updateStats();
-            this.showMessage('All data cleared successfully.', 'success');
+    // ============= CHART INITIALIZATION =============
+    initializeCharts() {
+        this.initExpensePieChart();
+        this.initMonthlyTrendChart();
+        this.initIncomeExpenseChart();
+        this.initBudgetActualChart();
+        this.initBudgetProgressChart();
+    }
+
+    initExpensePieChart() {
+        const ctx = document.getElementById('expensePieChart');
+        if (!ctx) return;
+
+        this.charts.expensePie = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF',
+                        '#4BC0C0', '#FF6384', '#36A2EB', '#FFCE56'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ₹${value.toLocaleString('en-IN')} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    initMonthlyTrendChart() {
+        const ctx = document.getElementById('monthlyTrendChart');
+        if (!ctx) return;
+
+        this.charts.monthlyTrend = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Monthly Expenses',
+                    data: [],
+                    borderColor: '#FF6384',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 3
+                }, {
+                    label: 'Monthly Income',
+                    data: [],
+                    borderColor: '#36A2EB',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { padding: 20 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString('en-IN');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    initIncomeExpenseChart() {
+        const ctx = document.getElementById('incomeExpenseChart');
+        if (!ctx) return;
+
+        this.charts.incomeExpense = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Income',
+                    data: [],
+                    backgroundColor: '#4CAF50',
+                    borderColor: '#45a049',
+                    borderWidth: 1
+                }, {
+                    label: 'Expenses',
+                    data: [],
+                    backgroundColor: '#f44336',
+                    borderColor: '#da190b',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { padding: 20 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString('en-IN');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    initBudgetActualChart() {
+        const ctx = document.getElementById('budgetActualChart');
+        if (!ctx) return;
+
+        this.charts.budgetActual = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Budget',
+                    data: [],
+                    backgroundColor: '#2196F3',
+                    borderColor: '#1976D2',
+                    borderWidth: 1
+                }, {
+                    label: 'Actual Spending',
+                    data: [],
+                    backgroundColor: '#ff9800',
+                    borderColor: '#f57c00',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { padding: 20 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString('en-IN');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    initBudgetProgressChart() {
+        const ctx = document.getElementById('budgetProgressChart');
+        if (!ctx) return;
+
+        this.charts.budgetProgress = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [
+                        '#4CAF50', '#ff9800', '#f44336', '#2196F3',
+                        '#9c27b0', '#00bcd4', '#ff5722', '#795548'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 20 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw;
+                                return `${label}: ${value.toFixed(1)}% utilized`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ============= CHART UPDATE METHODS =============
+    updateAllCharts() {
+        this.updateExpensePieChart();
+        this.updateMonthlyTrendChart();
+        this.updateIncomeExpenseChart();
+        this.updateBudgetActualChart();
+    }
+
+    updateExpensePieChart() {
+        if (!this.charts.expensePie) return;
+
+        const categoryTotals = {};
+
+        this.months.forEach(monthData => {
+            monthData.expenses.forEach(expense => {
+                categoryTotals[expense.category] = (categoryTotals[expense.category] || 0) + expense.amount;
+            });
+        });
+
+        const labels = Object.keys(categoryTotals);
+        const data = Object.values(categoryTotals);
+
+        this.charts.expensePie.data.labels = labels;
+        this.charts.expensePie.data.datasets[0].data = data;
+        this.charts.expensePie.update();
+    }
+
+    updateMonthlyTrendChart() {
+        if (!this.charts.monthlyTrend) return;
+
+        const monthlyData = {};
+
+        this.months.forEach(monthData => {
+            const monthKey = `${monthData.month} ${monthData.year}`;
+            const totalExpenses = monthData.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+            monthlyData[monthKey] = {
+                expenses: totalExpenses,
+                income: monthData.income
+            };
+        });
+
+        const sortedMonths = Object.keys(monthlyData).sort();
+        const expenseData = sortedMonths.map(month => monthlyData[month].expenses);
+        const incomeData = sortedMonths.map(month => monthlyData[month].income);
+
+        this.charts.monthlyTrend.data.labels = sortedMonths;
+        this.charts.monthlyTrend.data.datasets[0].data = expenseData;
+        this.charts.monthlyTrend.data.datasets[1].data = incomeData;
+        this.charts.monthlyTrend.update();
+    }
+
+    updateIncomeExpenseChart() {
+        if (!this.charts.incomeExpense) return;
+
+        const monthlyData = {};
+
+        this.months.forEach(monthData => {
+            const monthKey = `${monthData.month.substr(0,3)} ${monthData.year}`;
+            const totalExpenses = monthData.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+            monthlyData[monthKey] = {
+                expenses: totalExpenses,
+                income: monthData.income
+            };
+        });
+
+        const sortedMonths = Object.keys(monthlyData).sort();
+        const expenseData = sortedMonths.map(month => monthlyData[month].expenses);
+        const incomeData = sortedMonths.map(month => monthlyData[month].income);
+
+        this.charts.incomeExpense.data.labels = sortedMonths;
+        this.charts.incomeExpense.data.datasets[0].data = incomeData;
+        this.charts.incomeExpense.data.datasets[1].data = expenseData;
+        this.charts.incomeExpense.update();
+    }
+
+    updateBudgetActualChart() {
+        if (!this.charts.budgetActual) return;
+
+        const budgetData = [];
+        const actualData = [];
+        const labels = [];
+
+        this.budgets.forEach((budget, category) => {
+            const actualSpending = this.getCategorySpending(category);
+
+            labels.push(category);
+            budgetData.push(budget.amount);
+            actualData.push(actualSpending);
+        });
+
+        this.charts.budgetActual.data.labels = labels;
+        this.charts.budgetActual.data.datasets[0].data = budgetData;
+        this.charts.budgetActual.data.datasets[1].data = actualData;
+        this.charts.budgetActual.update();
+    }
+
+    updateBudgetChart() {
+        if (!this.charts.budgetProgress) return;
+
+        const labels = [];
+        const data = [];
+
+        this.budgets.forEach((budget, category) => {
+            const actualSpending = this.getCategorySpending(category);
+            const utilizationRate = budget.amount > 0 ? (actualSpending / budget.amount) * 100 : 0;
+
+            labels.push(`${category} (₹${actualSpending.toLocaleString('en-IN')} / ₹${budget.amount.toLocaleString('en-IN')})`);
+            data.push(Math.min(utilizationRate, 100)); // Cap at 100%
+        });
+
+        this.charts.budgetProgress.data.labels = labels;
+        this.charts.budgetProgress.data.datasets[0].data = data;
+        this.charts.budgetProgress.update();
+    }
+
+    // ============= BUDGET MANAGEMENT =============
+    setBudget() {
+        const categorySelect = document.getElementById('budgetCategory');
+        const amountInput = document.getElementById('budgetAmount');
+        const periodSelect = document.getElementById('budgetPeriod');
+
+        const category = categorySelect.value;
+        const amount = parseFloat(amountInput.value);
+        const period = periodSelect.value;
+
+        if (!category || !amount || amount <= 0) {
+            this.showMessage('Please select a valid category and amount.', 'error');
+            return;
+        }
+
+        const budget = {
+            category: category,
+            amount: amount,
+            period: period,
+            createdAt: new Date().toISOString()
+        };
+
+        this.budgets.set(category, budget);
+        this.updateBudgetDisplay();
+        this.updateBudgetChart();
+        this.saveData();
+
+        // Reset form
+        categorySelect.value = '';
+        amountInput.value = '';
+
+        this.showMessage(`Budget set for ${category}: ₹${amount.toLocaleString('en-IN')}`, 'success');
+    }
+
+    deleteBudget(category) {
+        if (confirm(`Are you sure you want to delete the budget for ${category}?`)) {
+            this.budgets.delete(category);
+            this.updateBudgetDisplay();
+            this.updateBudgetChart();
+            this.saveData();
+            this.showMessage('Budget deleted successfully.', 'success');
         }
     }
 
-    // Validation Functions
-    validateMonthInput(month, year, income) {
-        const errors = [];
+    updateBudgetDisplay() {
+        const budgetList = document.getElementById('budgetList');
+        const budgetAlerts = document.getElementById('budgetAlerts');
 
-        if (!month) {
-            errors.push('Please select a month');
+        if (!budgetList || !budgetAlerts) return;
+
+        budgetList.innerHTML = '';
+        budgetAlerts.innerHTML = '';
+
+        if (this.budgets.size === 0) {
+            budgetList.innerHTML = '<p style="color: #666; font-style: italic;">No budgets set yet. Create your first budget above.</p>';
+            return;
         }
 
-        if (!year || year < 2020 || year > 2030) {
-            errors.push('Please enter a valid year between 2020 and 2030');
-        }
+        let alertsHtml = '';
 
-        if (!income || income <= 0) {
-            errors.push('Please enter a valid income amount');
-        }
+        this.budgets.forEach((budget, category) => {
+            const actualSpending = this.getCategorySpending(category);
+            const utilizationRate = budget.amount > 0 ? (actualSpending / budget.amount) * 100 : 0;
 
-        if (income && income > 10000000) {
-            errors.push('Income amount seems unreasonably high. Please verify.');
-        }
+            let progressClass = 'progress-fill';
+            if (utilizationRate >= 90) {
+                progressClass += ' danger';
+            } else if (utilizationRate >= 70) {
+                progressClass += ' warning';
+            }
 
-        return errors;
+            // Budget alerts
+            if (utilizationRate >= 100) {
+                alertsHtml += `
+                    <div class="alert alert-danger">
+                        🚨 <strong>${category}</strong> budget exceeded!
+                        Spent ₹${actualSpending.toLocaleString('en-IN')} of ₹${budget.amount.toLocaleString('en-IN')} (${utilizationRate.toFixed(1)}%)
+                    </div>`;
+            } else if (utilizationRate >= 80) {
+                alertsHtml += `
+                    <div class="alert alert-warning">
+                        ⚠️ <strong>${category}</strong> budget at ${utilizationRate.toFixed(1)}%!
+                        Spent ₹${actualSpending.toLocaleString('en-IN')} of ₹${budget.amount.toLocaleString('en-IN')}
+                    </div>`;
+            }
+
+            budgetList.innerHTML += `
+                <div class="budget-item">
+                    <div class="budget-info">
+                        <div class="budget-category">${category}</div>
+                        <div class="budget-progress">
+                            <div class="progress-bar">
+                                <div class="${progressClass}" style="width: ${Math.min(utilizationRate, 100)}%"></div>
+                            </div>
+                            <div class="budget-amounts">
+                                <span>₹${actualSpending.toLocaleString('en-IN')} spent</span>
+                                <span>₹${budget.amount.toLocaleString('en-IN')} budget</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger" onclick="app.deleteBudget('${category}')">Delete</button>
+                </div>
+            `;
+        });
+
+        budgetAlerts.innerHTML = alertsHtml;
     }
 
-    validateExpenseInput(monthId, category, amount) {
-        const errors = [];
-
-        if (!monthId) {
-            errors.push('Please select a month first');
-        }
-
-        if (!category) {
-            errors.push('Please select an expense category');
-        }
-
-        if (!amount || amount <= 0) {
-            errors.push('Please enter a valid expense amount');
-        }
-
-        if (amount && amount > 1000000) {
-            errors.push('Expense amount seems unreasonably high. Please verify.');
-        }
-
-        return errors;
+    getCategorySpending(category) {
+        let total = 0;
+        this.months.forEach(monthData => {
+            monthData.expenses.forEach(expense => {
+                if (expense.category === category) {
+                    total += expense.amount;
+                }
+            });
+        });
+        return total;
     }
 
-    // Month Management
+    // ============= EXPENSE & MONTH MANAGEMENT =============
     addMonthTile() {
         const monthSelect = document.getElementById('monthSelect');
         const yearInput = document.getElementById('yearInput');
@@ -115,7 +538,6 @@ class BalancifyApp {
         const year = parseInt(yearInput.value);
         const income = parseFloat(incomeInput.value);
 
-        // Validation
         const errors = this.validateMonthInput(month, year, income);
         if (errors.length > 0) {
             this.showMessage(errors.join('<br>'), 'error');
@@ -129,12 +551,10 @@ class BalancifyApp {
             return;
         }
 
-        // Show loading
         loadingSpinner.style.display = 'inline-block';
 
         setTimeout(() => {
             try {
-                // Create month data
                 const monthData = {
                     id: monthId,
                     month: month,
@@ -148,9 +568,10 @@ class BalancifyApp {
                 this.renderMonthTile(monthData);
                 this.updateExpenseMonthDropdown();
                 this.updateStats();
+                this.updateAllCharts();
+                this.updateBudgetDisplay();
                 this.saveData();
 
-                // Reset form
                 monthSelect.value = '';
                 incomeInput.value = '';
 
@@ -170,12 +591,13 @@ class BalancifyApp {
             document.getElementById(monthId)?.remove();
             this.updateExpenseMonthDropdown();
             this.updateStats();
+            this.updateAllCharts();
+            this.updateBudgetDisplay();
             this.saveData();
             this.showMessage('Month deleted successfully.', 'success');
         }
     }
 
-    // Expense Management
     addExpenseEntry() {
         const monthSelect = document.getElementById('expenseMonth');
         const typeSelect = document.getElementById('expenseType');
@@ -189,7 +611,6 @@ class BalancifyApp {
         const amount = parseFloat(amountInput.value);
         const note = noteInput.value.trim();
 
-        // Handle custom category
         if (category === 'Other') {
             const customCategory = otherTypeInput.value.trim();
             if (!customCategory) {
@@ -199,25 +620,21 @@ class BalancifyApp {
             category = customCategory;
         }
 
-        // Validation
         const errors = this.validateExpenseInput(monthId, category, amount);
         if (errors.length > 0) {
             this.showMessage(errors.join('<br>'), 'error');
             return;
         }
 
-        // Check if month exists
         if (!this.months.has(monthId)) {
             this.showMessage('Selected month not found. Please refresh and try again.', 'error');
             return;
         }
 
-        // Show loading
         loadingSpinner.style.display = 'inline-block';
 
         setTimeout(() => {
             try {
-                // Create expense data
                 const expense = {
                     id: Date.now().toString(),
                     category: category,
@@ -227,17 +644,16 @@ class BalancifyApp {
                     createdAt: new Date().toISOString()
                 };
 
-                // Add expense to month
                 const monthData = this.months.get(monthId);
                 monthData.expenses.push(expense);
                 this.months.set(monthId, monthData);
 
-                // Re-render the month tile
                 this.renderMonthTile(monthData);
                 this.updateStats();
+                this.updateAllCharts();
+                this.updateBudgetDisplay();
                 this.saveData();
 
-                // Reset form
                 typeSelect.value = '';
                 amountInput.value = '';
                 noteInput.value = '';
@@ -261,13 +677,34 @@ class BalancifyApp {
                 this.months.set(monthId, monthData);
                 this.renderMonthTile(monthData);
                 this.updateStats();
+                this.updateAllCharts();
+                this.updateBudgetDisplay();
                 this.saveData();
                 this.showMessage('Expense deleted successfully.', 'success');
             }
         }
     }
 
-    // Rendering Functions
+    // ============= VALIDATION =============
+    validateMonthInput(month, year, income) {
+        const errors = [];
+        if (!month) errors.push('Please select a month');
+        if (!year || year < 2020 || year > 2030) errors.push('Please enter a valid year between 2020 and 2030');
+        if (!income || income <= 0) errors.push('Please enter a valid income amount');
+        if (income && income > 10000000) errors.push('Income amount seems unreasonably high. Please verify.');
+        return errors;
+    }
+
+    validateExpenseInput(monthId, category, amount) {
+        const errors = [];
+        if (!monthId) errors.push('Please select a month first');
+        if (!category) errors.push('Please select an expense category');
+        if (!amount || amount <= 0) errors.push('Please enter a valid expense amount');
+        if (amount && amount > 1000000) errors.push('Expense amount seems unreasonably high. Please verify.');
+        return errors;
+    }
+
+    // ============= RENDERING =============
     renderMonthTile(monthData) {
         const existingTile = document.getElementById(monthData.id);
         if (existingTile) {
@@ -283,7 +720,6 @@ class BalancifyApp {
         const balance = monthData.income - totalExpenses;
         const balanceClass = balance >= 0 ? 'positive-balance' : 'negative-balance';
 
-        // Group expenses by category for summary
         const categoryTotals = {};
         monthData.expenses.forEach(expense => {
             categoryTotals[expense.category] = (categoryTotals[expense.category] || 0) + expense.amount;
@@ -340,9 +776,10 @@ class BalancifyApp {
 
     renderAllMonths() {
         const container = document.getElementById('monthsContainer');
+        if (!container) return;
+
         container.innerHTML = '';
 
-        // Sort months by year and month
         const sortedMonths = Array.from(this.months.values()).sort((a, b) => {
             if (a.year !== b.year) return b.year - a.year;
             const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -355,9 +792,11 @@ class BalancifyApp {
         });
     }
 
-    // UI Helper Functions
+    // ============= UI HELPERS =============
     updateExpenseMonthDropdown() {
         const select = document.getElementById('expenseMonth');
+        if (!select) return;
+
         select.innerHTML = '<option value="">Choose month...</option>';
 
         const sortedMonths = Array.from(this.months.values()).sort((a, b) => {
@@ -386,12 +825,37 @@ class BalancifyApp {
         });
 
         const totalBalance = totalIncome - totalExpenses;
+        const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100) : 0;
 
+        // Calculate budget utilization
+        let totalBudget = 0;
+        let totalBudgetSpent = 0;
+
+        this.budgets.forEach((budget, category) => {
+            totalBudget += budget.amount;
+            totalBudgetSpent += this.getCategorySpending(category);
+        });
+
+        const budgetUtilization = totalBudget > 0 ? (totalBudgetSpent / totalBudget * 100) : 0;
+
+        // Update UI
         document.getElementById('totalIncome').textContent = `₹${totalIncome.toLocaleString('en-IN')}`;
         document.getElementById('totalExpenses').textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
         document.getElementById('totalBalance').textContent = `₹${totalBalance.toLocaleString('en-IN')}`;
         document.getElementById('totalBalance').style.color = totalBalance >= 0 ? '#4CAF50' : '#f44336';
         document.getElementById('monthsCount').textContent = monthsCount;
+        document.getElementById('budgetUtilization').textContent = `${budgetUtilization.toFixed(1)}%`;
+        document.getElementById('savingsRate').textContent = `${savingsRate.toFixed(1)}%`;
+
+        // Update savings rate color
+        const savingsElement = document.getElementById('savingsRate');
+        if (savingsRate >= 20) {
+            savingsElement.style.color = '#4CAF50';
+        } else if (savingsRate >= 10) {
+            savingsElement.style.color = '#ff9800';
+        } else {
+            savingsElement.style.color = '#f44336';
+        }
     }
 
     toggleOtherType() {
@@ -399,13 +863,15 @@ class BalancifyApp {
         const otherGroup = document.getElementById('otherTypeGroup');
         const otherInput = document.getElementById('otherType');
 
-        if (typeSelect.value === 'Other') {
-            otherGroup.style.display = 'block';
-            otherInput.required = true;
-        } else {
-            otherGroup.style.display = 'none';
-            otherInput.required = false;
-            otherInput.value = '';
+        if (typeSelect && otherGroup && otherInput) {
+            if (typeSelect.value === 'Other') {
+                otherGroup.style.display = 'block';
+                otherInput.required = true;
+            } else {
+                otherGroup.style.display = 'none';
+                otherInput.required = false;
+                otherInput.value = '';
+            }
         }
     }
 
@@ -413,7 +879,8 @@ class BalancifyApp {
         const errorDiv = document.getElementById('errorMessage');
         const successDiv = document.getElementById('successMessage');
 
-        // Hide both first
+        if (!errorDiv || !successDiv) return;
+
         errorDiv.style.display = 'none';
         successDiv.style.display = 'none';
 
@@ -427,12 +894,10 @@ class BalancifyApp {
             setTimeout(() => successDiv.style.display = 'none', 3000);
         }
 
-        // Scroll to top to show message
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     setupEventListeners() {
-        // Online/offline status
         window.addEventListener('online', () => {
             this.isOnline = true;
             this.checkOnlineStatus();
@@ -443,14 +908,12 @@ class BalancifyApp {
             this.checkOnlineStatus();
         });
 
-        // Auto-save on visibility change
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 this.saveData();
             }
         });
 
-        // Save before page unload
         window.addEventListener('beforeunload', () => {
             this.saveData();
         });
@@ -458,33 +921,35 @@ class BalancifyApp {
 
     checkOnlineStatus() {
         const indicator = document.getElementById('offlineIndicator');
-        if (this.isOnline) {
-            indicator.style.display = 'none';
-        } else {
-            indicator.style.display = 'block';
+        if (indicator) {
+            if (this.isOnline) {
+                indicator.style.display = 'none';
+            } else {
+                indicator.style.display = 'block';
+            }
         }
     }
 
-    // Export Data (for backup)
     exportData() {
         try {
             const data = {
                 months: Object.fromEntries(this.months),
+                budgets: Object.fromEntries(this.budgets),
                 exportDate: new Date().toISOString(),
-                version: '2.0'
+                version: '2.1-enhanced'
             };
 
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `balancify-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `balancify-enhanced-backup-${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            this.showMessage('Data exported successfully!', 'success');
+            this.showMessage('Enhanced data exported successfully!', 'success');
         } catch (error) {
             console.error('Export error:', error);
             this.showMessage('Error exporting data.', 'error');
@@ -507,11 +972,15 @@ function toggleOtherType() {
     app.toggleOtherType();
 }
 
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    app = new BalancifyApp();
+function setBudget() {
+    app.setBudget();
+}
 
-    // Add keyboard shortcuts
+// Initialize enhanced app
+document.addEventListener('DOMContentLoaded', () => {
+    app = new BalancifyEnhancedApp();
+
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.metaKey) {
             switch(e.key) {
@@ -528,5 +997,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Make app globally available for debugging
-window.BalancifyApp = BalancifyApp;
+// Make app globally available
+window.BalancifyEnhancedApp = BalancifyEnhancedApp;
